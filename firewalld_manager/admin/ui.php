@@ -231,7 +231,7 @@ function badge($state,$labels){ $class='badge'; $text=$labels[$state]??$state;
     <div class="row">
       <form method="post" class="inline">
         <input type="hidden" name="zone" value="<?= h($zpick); ?>">
-        <input type="text" name="source" placeholder="CIDR or IP (e.g. 203.0.113.0/24)" style="min-width:280px;">
+        <input type="text" name="source" placeholder="CIDR or IP (e.g. 123.0.321.0/24)" style="min-width:280px;">
         <select name="permanent"><option value="no">Runtime</option><option value="yes">Permanent</option></select>
         <button name="action" value="add_source">Add Source</button>
         <button name="action" value="remove_source" class="btn secondary">Remove Source</button>
