@@ -33,6 +33,7 @@ cd ../firewalld_manager
 If you do not have PHP installed yet, install that, for example:
 
 da build set php1_mode php-fpm
+
 da build set php1_release 8.3
 
 
