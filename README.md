@@ -9,6 +9,13 @@ A plugin for DirectAdmin to control firewalld on Almalinux 9 and other DirectAdm
 - 
 
 
+After a fresh install of Directadmin, you can open port 2222 with the following commands:
+
+firewall-cmd --permanent --zone=public --add-port=2222/tcp
+
+systemctl restart firewalld.service
+
+
 #How to install as root on a fresh install of directadmin with no CSF installed
 
 cd /usr/local/directadmin/plugins/
@@ -23,7 +30,10 @@ cd ../firewalld_manager
 
 ./install.sh
 
+If you do not have PHP installed yet, install that, for example:
 
+da build set php1_mode php-fpm
+da build set php1_release 8.3
 
 
 #How to use
@@ -31,8 +41,3 @@ cd ../firewalld_manager
 Firewalld uses groups of rules called zones. Each zone includes a set of Services, ports, IPs, or "rich rules" that dictate how traffic will flow.
 
 
-After a fresh install of Directadmin, you can open port 2222 with the following commands:
-
-firewall-cmd --permanent --zone=public --add-port=2222/tcp
-
-systemctl restart firewalld.service
