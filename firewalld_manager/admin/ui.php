@@ -1,4 +1,89 @@
 <?php
+/**
+ * Persistent warning popup for DirectAdmin plugin pages.
+ * Dismissal persists across reloads (localStorage with cookie fallback).
+ *
+ * Usage:
+ *   render_da_warning_popup_persist(
+ *     "This plugin can change system settings. Proceed carefully.",
+ *     ['key' => 'firewalld_manager_warning', 'scope' => 'local'] // 'local' or 'session'
+ *   );
+ */
+function render_da_warning_popup_persist($message = "This plugin can change system settings. Proceed carefully. You can break things.", array $opts = []) {
+    static $rendered = false; if ($rendered) return; $rendered = true;
+
+    $key = isset($opts['key']) && $opts['key'] !== ''
+         ? preg_replace('/[^A-Za-z0-9_.:-]/','_', (string)$opts['key'])
+         : ('da_plugin_warning_' . md5($_SERVER['SCRIPT_NAME'] ?? 'da'));
+    $scope = (isset($opts['scope']) && $opts['scope'] === 'session') ? 'session' : 'local';
+
+    $msg      = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
+    $key_js   = json_encode($key,   JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP);
+    $scope_js = json_encode($scope, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP);
+
+    echo <<<HTML
+<div id="da-popup-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:99999;">
+  <div role="dialog" aria-modal="true" aria-labelledby="da-popup-title" style="background:#fff;color:#000;min-width:320px;max-width:560px;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:18px 16px;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif">
+    <h3 id="da-popup-title" style="margin:0 0 10px;font-size:18px">Heads up!</h3>
+    <p style="margin:0 0 14px;">{$msg}</p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button id="da-popup-ok" type="button"
+        style="padding:8px 14px;border:1px solid #1e5cb3;background:#2d7df7;color:#fff;border-radius:8px;cursor:pointer;">
+        OK
+      </button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var KEY = {$key_js};
+  var SCOPE = {$scope_js};
+  var overlay = document.getElementById('da-popup-overlay');
+
+  function storageObj(){
+    try { return SCOPE === "session" ? window.sessionStorage : window.localStorage; } catch(e){ return null; }
+  }
+  function isDismissed(){
+    var s = storageObj();
+    if (s) { try { return s.getItem(KEY) === '1'; } catch(e){} }
+    return document.cookie.indexOf(KEY + '=1') !== -1;
+  }
+  function setDismissed(){
+    var s = storageObj();
+    if (s) { try { s.setItem(KEY, '1'); return; } catch(e){} }
+    var expires = new Date(); expires.setFullYear(expires.getFullYear()+5);
+    document.cookie = KEY + '=1; path=/; expires=' + expires.toUTCString();
+  }
+
+  if (isDismissed()) {
+    if (overlay) overlay.remove();
+    return;
+  }
+  if (overlay) overlay.style.display = 'flex';
+
+  var ok = document.getElementById('da-popup-ok');
+  if (ok) ok.addEventListener('click', function(){
+    if (overlay) overlay.remove();
+    setDismissed();
+  }, { once: true });
+})();
+</script>
+HTML;
+}
+
+// Apply the popup
+render_da_warning_popup_persist(
+  "This plugin can change system settings. Proceed carefully. You can break things.",
+  ['key' => 'firewalld_manager_warning', 'scope' => 'local'] // use 'session' for per-tab dismissal
+);
+
+
+
+
+
+
+
+
 require __DIR__.'/header.php';
 
 // DirectAdmin passes query/body in env for CLI PHP
@@ -113,8 +198,8 @@ function badge($state,$labels){ $class='badge'; $text=$labels[$state]??$state;
       <button name="action" value="service_reload" class="btn secondary">Reload</button>
       <button name="action" value="service_enable">Enable on boot</button>
       <button name="action" value="service_disable" class="btn secondary">Disable on boot</button>
-      <button name="action" value="panic_on" class="btn danger">Panic ON</button>
-      <button name="action" value="panic_off" class="btn success">Panic OFF</button>
+<!--      <button name="action" value="panic_on" class="btn danger">Panic ON</button> -->
+<!--      <button name="action" value="panic_off" class="btn success">Panic OFF</button> -->
     </form>
   </div>
 
@@ -184,24 +269,30 @@ function badge($state,$labels){ $class='badge'; $text=$labels[$state]??$state;
         </div>
         <div>Rich Rules:</div>
         <div>
-          <pre style="white-space:pre-wrap;background:#0b1426;border:1px solid #22314d;padding:12px;border-radius:8px;"><?php
-            echo h(implode("\n", $zi['rich_rules'] ?? []));
-          ?></pre>
+        <pre style="white-space:pre-wrap; line-height:1.9; background:#0b1426;border:1px solid #22314d;padding:12px;border-radius:8px;"><?php
+  echo h(implode("\n\n", $zi['rich_rules'] ?? []));
+?></pre>
+
         </div>
       </div>
     <?php endif; ?>
   </div>
 
+
   <div class="panel">
-    <h3>Modify Zone</h3>
+    <h3>Modify Selected Zone</h3>
     <div class="row">
-      <form method="post" class="inline">
+
+<!--      <form method="post" class="inline">
         <input type="hidden" name="zone" value="<?= h($zpick); ?>">
         <label class="muted">Permanent?</label>
         <select name="permanent"><option value="no">Runtime</option><option value="yes">Permanent</option></select>
       </form>
+-->
+
     </div>
     <div class="hr"></div>
+
 
     <div class="row">
       <form method="post" class="inline">
@@ -217,6 +308,11 @@ function badge($state,$labels){ $class='badge'; $text=$labels[$state]??$state;
       </form>
     </div>
 
+    <div class="hr"></div>
+    <div class="hr"></div>
+
+
+ <label class="muted">Port</label>
     <div class="row">
       <form method="post" class="inline">
         <input type="hidden" name="zone" value="<?= h($zpick); ?>">
@@ -228,6 +324,11 @@ function badge($state,$labels){ $class='badge'; $text=$labels[$state]??$state;
       </form>
     </div>
 
+
+    <div class="hr"></div>
+    <div class="hr"></div>
+
+ <label class="muted">CIDr/IP</label>
     <div class="row">
       <form method="post" class="inline">
         <input type="hidden" name="zone" value="<?= h($zpick); ?>">
@@ -238,6 +339,11 @@ function badge($state,$labels){ $class='badge'; $text=$labels[$state]??$state;
       </form>
     </div>
 
+
+    <div class="hr"></div>
+    <div class="hr"></div>
+
+ <label class="muted">Rich Rule</label>
     <div class="row">
       <form method="post" class="inline">
         <input type="hidden" name="zone" value="<?= h($zpick); ?>">
@@ -247,6 +353,9 @@ function badge($state,$labels){ $class='badge'; $text=$labels[$state]??$state;
         <button name="action" value="remove_rich" class="btn secondary">Remove Rich Rule</button>
       </form>
     </div>
+
+    <div class="hr"></div>
+    <div class="hr"></div>
 
     <div class="row">
       <form method="post" class="inline">
@@ -260,6 +369,9 @@ function badge($state,$labels){ $class='badge'; $text=$labels[$state]??$state;
         <button name="action" value="remove_iface" class="btn secondary">Unbind Interface</button>
       </form>
     </div>
+
+    <div class="hr"></div>
+    <div class="hr"></div>
 
     <div class="row">
       <form method="post" class="inline">
