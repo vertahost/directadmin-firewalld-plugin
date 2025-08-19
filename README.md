@@ -9,7 +9,20 @@ A plugin for DirectAdmin to control firewalld on Almalinux 9 and other DirectAdm
 - 
 
 
-#How to install
+#How to install as root on a fresh install of directadmin with no CSF installed
+
+cd /usr/local/directadmin/plugins/
+
+git clone https://github.com/vertahost/directadmin-firewalld-plugin.git
+
+cd /usr/local/directadmin/plugins/directadmin-firewalld-plugin
+
+mv firewalld_manager ..
+
+cd ../firewalld_manager
+
+./install.sh
+
 
 
 
