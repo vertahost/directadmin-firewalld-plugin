@@ -7,6 +7,7 @@ if [[ -d "$(pwd)" && "$(pwd)" != "$BASE" ]]; then
   mkdir -p "$BASE"
   cp -a ./* "$BASE/" || true
 fi
+mkdir "$BASE/data"
 chown -R diradmin:diradmin "$BASE" || true
 chmod 0755 "$BASE"
 find "$BASE/admin" -type f -name "*.html" -exec chmod 0755 {} +
