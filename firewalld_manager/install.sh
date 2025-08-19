@@ -17,11 +17,11 @@ chmod -R 0755 "$BASE/scripts" || true
 chmod -R 0700 "$BASE/data" || true
 [ -f "$BASE/plugin.conf" ] && chmod 0644 "$BASE/plugin.conf"
 
-# sudoers rule for diradmin -> fwctl.sh
+# sudoers rule for admin -> fwctl.sh
 if [[ ! -f "$SUDOERS_FILE" ]]; then
   cat > "$SUDOERS_FILE" <<'EOF'
-Defaults:diradmin !requiretty
-diradmin ALL=(root) NOPASSWD: /usr/local/directadmin/plugins/firewalld_manager/scripts/fwctl.sh *
+Defaults:admin !requiretty
+admin ALL=(root) NOPASSWD: /usr/local/directadmin/plugins/firewalld_manager/scripts/fwctl.sh *
 EOF
   chmod 0440 "$SUDOERS_FILE"
   visudo -c >/dev/null || { echo "visudo validation failed"; exit 1; }
