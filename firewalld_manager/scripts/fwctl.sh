@@ -3,44 +3,93 @@ set -euo pipefail
 IFS=$'\n\t'
 PATH="/usr/sbin:/usr/bin:/sbin:/bin"
 
+#error out if no firewall-cmd
 die(){ echo "ERROR: $*" >&2; exit 1; }
 require_firewalld(){ command -v firewall-cmd >/dev/null 2>&1 || die "firewall-cmd not found"; }
 
-json_escape() { python3 - <<'PY' -- "$1"
-import json,sys; print(json.dumps(sys.argv[1]))
-PY
+# escape the json outputs
+json_escape() {
+  # Outputs a valid JSON string (including surrounding quotes)
+  # Handles \ " newline, carriage return, and tab
+  local s="$1"
+  s=${s//\\/\\\\}         # backslash
+  s=${s//\"/\\\"}         # double quote
+  s=${s//$'\n'/\\n}       # newline
+  s=${s//$'\r'/\\r}       # carriage return
+  s=${s//$'\t'/\\t}       # tab
+  printf '"%s"' "$s"
 }
-list_to_json_array(){ python3 - <<'PY'
-import json,sys; print(json.dumps([x for x in sys.stdin.read().splitlines() if x.strip()]))
-PY
-}
+
+
+#Make a list to json array
+list_to_json_array(){ jq -Rsc 'split("\n") | map(select(test("\\S")))' ; }
+
+
+
 
 systemd_status_json() {
+  local unit="${1:-firewalld}"
   local active="unknown" enabled="unknown"
+
   if command -v systemctl >/dev/null 2>&1; then
-    active=$(systemctl is-active firewalld || true)
-    enabled=$(systemctl is-enabled firewalld || true)
+    active="$(systemctl is-active "$unit" 2>/dev/null || true)"
+    enabled="$(systemctl is-enabled "$unit" 2>/dev/null || true)"
+  elif command -v service >/dev/null 2>&1; then
+    # SysV fallback (best-effort)
+    if service "$unit" status >/dev/null 2>&1; then
+      active="active"
+    else
+      active="inactive"
+    fi
+    if command -v chkconfig >/dev/null 2>&1; then
+      if chkconfig --list "$unit" 2>/dev/null | grep -Eq '\bon\b|3:on'; then
+        enabled="enabled"
+      else
+        enabled="disabled"
+      fi
+    fi
   fi
-  printf '{\"active\": %s, \"enabled\": %s}' "$(json_escape "$active")" "$(json_escape "$enabled")"
+
+  printf '{"active": %s, "enabled": %s}' \
+    "$(json_escape "${active:-unknown}")" \
+    "$(json_escape "${enabled:-unknown}")"
 }
 
-status_json(){
+status_json() {
   require_firewalld
-  local version="" default_zone="" zones="" panic=""
-  version=$(firewall-cmd --version || echo "")
-  default_zone=$(firewall-cmd --get-default-zone || echo "")
-  zones=$(firewall-cmd --get-zones || echo "")
-  firewall-cmd --query-panic >/dev/null 2>&1 && panic="yes" || panic="no"
+
+  # Resolve firewall-cmd even in restricted PATHs
+  local FWCMD; FWCMD="$(command -v firewall-cmd 2>/dev/null || true)"
+
+  local version="" default_zone="" zones="" panic="unknown"
+  if [[ -n "$FWCMD" ]]; then
+    version="$("$FWCMD" --version 2>/dev/null || true)"
+    default_zone="$("$FWCMD" --get-default-zone 2>/dev/null || true)"
+    zones="$("$FWCMD" --get-zones 2>/dev/null || true)"
+    panic="$("$FWCMD" --query-panic 2>/dev/null || true)"
+    [[ "$panic" == "yes" || "$panic" == "no" ]] || panic="unknown"
+  fi
+
+  # Fallback for default zone from config if CLI didn’t return one
+  if [[ -z "$default_zone" ]] && [[ -r /etc/firewalld/firewalld.conf ]]; then
+    default_zone="$(awk -F= '/^[[:space:]]*DefaultZone[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2); print $2; exit}' /etc/firewalld/firewalld.conf 2>/dev/null)"
+  fi
 
   printf '{'
-  printf '"systemd": %s,' "$(systemd_status_json)"
-  printf '"version": %s,' "$(json_escape "$version")"
-  printf '"default_zone": %s,' "$(json_escape "$default_zone")"
-  printf '"panic_mode": %s,' "$(json_escape "$panic")"
+  printf '"systemd": %s,' "$(systemd_status_json firewalld)"
+  printf '"version": %s,'      "$(json_escape "${version:-unknown}")"
+  printf '"default_zone": %s,' "$(json_escape "${default_zone:-unknown}")"
+  printf '"panic_mode": %s,'   "$(json_escape "${panic:-unknown}")"
   printf '"zones": '
-  echo "$zones" | tr ' ' '\n' | list_to_json_array
+  if [[ -n "$zones" ]]; then
+    echo "$zones" | tr ' ' '\n' | list_to_json_array
+  else
+    printf '[]'
+  fi
   printf '}'
 }
+
+
 
 valid_zone(){ firewall-cmd --get-zones | tr ' ' '\n' | grep -Ex -- "$1" >/dev/null 2>&1; }
 
@@ -65,12 +114,12 @@ zone_info_json(){
 }
 
 get_services_json(){ require_firewalld; firewall-cmd --get-services | tr ' ' '\n' | list_to_json_array; }
+
+
 list_interfaces_json(){
-  local out=""
-  if command -v ip >/dev/null 2>&1; then
+  local out=""; if command -v ip >/dev/null 2>&1; then
     out=$(ip -o link show | awk -F': ' '{print $2}' | sed 's/@.*//' | grep -v '^lo$' || true)
-  fi
-  echo "$out" | list_to_json_array
+  fi; echo "$out" | list_to_json_array
 }
 
 add_service(){ local zone="$1" service="$2" permanent="${3:-no}"
