@@ -45,7 +45,7 @@ da build set php1_release 8.3
 
 # How to use
 
-Firewalld uses groups of rules called zones. Each zone includes a set of Services, ports, IPs, or "rich rules" that dictate how traffic will flow.
+Firewalld uses groups of rules called zones. Each zone includes a set of Services, ports, IPs, or "rich rules" that dictate how traffic will flow. The zone that is set to be default, is the zone that is active.
 
 
 The firewall-cmd bash wrapper can be directly accessed via command line as well to do what you can do via the GUI
