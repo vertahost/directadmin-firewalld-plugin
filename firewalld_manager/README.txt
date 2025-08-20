@@ -13,3 +13,6 @@ Troubleshooting:
   - Ensure /etc/sudoers.d/directadmin_firewalld_manager exists and passes: visudo -cf /etc/sudoers.d/directadmin_firewalld_manager
   - Test as diradmin:
       su -s /bin/bash -c '/usr/bin/sudo -n /usr/local/directadmin/plugins/firewalld_manager/scripts/fwctl.sh status-json' diradmin
+
+If you get a white page in DA on a fresh install, make sure you have PHP installed properly:
+php -v
