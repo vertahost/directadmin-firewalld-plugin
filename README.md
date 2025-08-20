@@ -7,6 +7,7 @@ A plugin for DirectAdmin to control firewalld on Almalinux 9 and other DirectAdm
 - **JQ**
     yum/dnf install jq
 - PHP installed in DirectAdmin
+- PHP exec enabled on system PHP version
 
 
 After a fresh install of Directadmin, you can open port 2222 with the following commands:
