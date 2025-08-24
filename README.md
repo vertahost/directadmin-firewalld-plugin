@@ -73,3 +73,15 @@ Usage:
   ./fwctl.sh icmp-block <add|remove|list> [type]
   ./fwctl.sh service <start|stop|restart|reload|enable|disable|status>
 ```
+
+
+Adding a rich rule in the interface, you would enter the following in the box, which will open passive FTP ports:
+
+```
+rule family="ipv4" port port="35000-35999" protocol="tcp" accept
+```
+
+To add a rich rule via command line, encapsulate the rule in a single quote, for example opening a single port:
+
+ ./fwctl.sh add-rich-rule Directadmin 'rule family="ipv4" port port="35" protocol="tcp" accept' no
+
