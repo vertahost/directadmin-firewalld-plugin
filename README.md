@@ -75,7 +75,7 @@ Usage:
 ```
 
 
-Adding a rich rule in the interface, you would enter the following in the box, which will open passive FTP ports:
+Adding a rich rule in the interface, you would enter the following in the box, which will open a range of ports:
 
 ```
 rule family="ipv4" port port="35000-35999" protocol="tcp" accept
